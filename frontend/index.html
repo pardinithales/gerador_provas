@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prova Online</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        /* Desabilita impressão */
+        @media print {
+            body {
+                display: none !important;
+            }
+        }
+        /* Desabilita seleção de texto (aplicado via classe Tailwind) */
+        /* Apenas para garantir que .select-none funcione */
+        .select-none { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
+
+        /* Estilo para radio buttons selecionados */
+        input[type="radio"]:checked + label {
+             background-color: #bfdbfe; /* light blue */
+             border-color: #3b82f6; /* blue */
+        }
+        
+        /* Estilo para o editor Markdown */
+        .markdown-editor {
+            font-family: monospace;
+            min-height: 300px;
+        }
+        
+        /* Remove anti-seleção para as áreas de admin */
+        .admin-area {
+            user-select: text !important;
+            -webkit-user-select: text !important;
+            -moz-user-select: text !important;
+            -ms-user-select: text !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <div
+        x-data="examApp()"
+        @copy.prevent="allowCopyInAdmin($event)" 
+        @cut.prevent="allowCutInAdmin($event)" 
+        @paste.prevent="allowPasteInAdmin($event)" 
+        @contextmenu.prevent="allowContextInAdmin($event)"
+        @keyup.window="handleKeyUp($event)"
+        class="bg-white p-6 sm:p-8 rounded-lg shadow-lg w-full max-w-2xl select-none"
+    >
+        <!-- Menu Superior com Link para Admin -->
+        <div class="mb-6 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-center flex-grow">Plataforma de Provas</h1>
+            <button
+                @click="toggleAdminModal()" 
+                class="bg-gray-500 hover:bg-gray-600 text-white text-sm py-1 px-3 rounded"
+            >
+                Admin
+            </button>
+        </div>
+        
+        <!-- Tela Inicial / Identificação -->
+        <div x-show="examState === 'initial'" x-transition>
+            <p class="text-gray-600 mb-6 text-center">Insira seu e-mail para iniciar a prova.</p>
+            <div class="mb-4">
+                <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Seu E-mail:</label>
+                <input type="email" id="email" x-model="studentIdentifier" placeholder="seu.email@exemplo.com" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                <p x-show="showIdentifierError" class="text-red-500 text-xs mt-1">Por favor, insira um e-mail válido.</p>
+            </div>
+            <button
+                @click="startExam()"
+                :disabled="isLoading"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            >
+                <span x-show="!isLoading">Iniciar Prova</span>
+                <span x-show="isLoading">Carregando...</span>
+                 <!-- Spinner SVG -->
+                 <svg x-show="isLoading" class="animate-spin -mr-1 ml-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </button>
+            <p x-show="errorMessage" class="text-red-600 mt-4 text-center" x-text="errorMessage"></p>
+        </div>
+
+        <!-- Tela da Prova -->
+        <div x-show="examState === 'taking'" x-transition>
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 class="text-xl font-semibold truncate" x-text="examData?.metadata?.titulo || 'Carregando...'"></h2>
+                <div class="text-lg font-mono bg-gray-200 px-3 py-1 rounded">
+                    ⏳ <span x-text="formatTime(timeLeft)"></span>
+                </div>
+            </div>
+
+            <div x-show="currentQuestionIndex !== null && examData?.questions?.length > 0">
+                <div class="mb-6 p-4 border rounded bg-gray-50">
+                    <p class="mb-1 text-sm text-gray-600">Questão <span x-text="currentQuestionIndex + 1"></span> de <span x-text="examData?.questions?.length"></span></p>
+                    <p class="text-lg font-medium mb-4" x-text="examData.questions[currentQuestionIndex]?.text"></p>
+                    <div class="space-y-3">
+                        <template x-for="(option, index) in examData.questions[currentQuestionIndex]?.options" :key="index">
+                            <div class="flex items-center">
+                                <input
+                                    :id="'q' + examData.questions[currentQuestionIndex]?.question_number + '_opt' + index"
+                                    :name="'q' + examData.questions[currentQuestionIndex]?.question_number"
+                                    type="radio"
+                                    :value="index"
+                                    :checked="answers[examData.questions[currentQuestionIndex]?.question_number] === index"
+                                    @click="selectAnswer(examData.questions[currentQuestionIndex]?.question_number, index)"
+                                    class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500 mr-3"
+                                    >
+                                <label
+                                    :for="'q' + examData.questions[currentQuestionIndex]?.question_number + '_opt' + index"
+                                    class="block text-md text-gray-800 border border-gray-300 rounded-md px-4 py-2 w-full cursor-pointer hover:bg-gray-100 transition duration-150"
+                                    x-text="String.fromCharCode(65 + index) + ') ' + option"
+                                ></label>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="flex justify-between">
+                    <div>
+                        <p x-show="!isAnswerSelected(examData.questions[currentQuestionIndex]?.question_number)" class="text-orange-500 text-sm">Selecione uma resposta para continuar</p>
+                    </div>
+                    <div>
+                        <!-- Botão Próxima Questão -->
+                        <button
+                            x-show="currentQuestionIndex < examData?.questions?.length - 1"
+                            @click="nextQuestion()"
+                            :disabled="!isAnswerSelected(examData.questions[currentQuestionIndex]?.question_number)"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Próxima &rarr;
+                        </button>
+                        <!-- Botão Finalizar Prova -->
+                        <button
+                            x-show="currentQuestionIndex === examData?.questions?.length - 1"
+                            @click="submitExam()"
+                            :disabled="!isAnswerSelected(examData.questions[currentQuestionIndex]?.question_number) || isLoading"
+                            class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                        >
+                            <span x-show="!isLoading">Finalizar Prova</span>
+                            <span x-show="isLoading">Enviando...</span>
+                            <svg x-show="isLoading" class="animate-spin -mr-1 ml-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <p x-show="errorMessage" class="text-red-600 mt-4 text-center" x-text="errorMessage"></p>
+            </div>
+            <div x-show="currentQuestionIndex === null && examData === null && !errorMessage" class="text-center text-gray-500">
+                Carregando questões...
+            </div>
+        </div>
+
+        <!-- Tela de Submissão / Resultados -->
+        <div x-show="examState === 'submitted'" x-transition>
+            <h2 class="text-2xl font-bold mb-4 text-center text-green-600">Prova Finalizada!</h2>
+            <div class="bg-gray-100 p-4 rounded-md text-center">
+                <p class="text-lg mb-2">Sua pontuação:</p>
+                <p class="text-4xl font-bold mb-4" x-text="submissionResult?.score + '%'"></p>
+                <p class="text-gray-700">Você acertou <span x-text="submissionResult?.correct_answers"></span> de <span x-text="submissionResult?.total_questions"></span> questões.</p>
+                <p class="mt-4 text-sm text-gray-600">Um e-mail com o detalhamento do seu resultado foi enviado para <strong x-text="studentIdentifier"></strong>.</p>
+            </div>
+        </div>
+
+        <!-- Tela de Erro Geral -->
+         <div x-show="examState === 'error' && examState !== 'initial'" x-transition>
+             <h2 class="text-2xl font-bold mb-4 text-center text-red-600">Ocorreu um Erro</h2>
+             <p class="text-center text-gray-700 mb-4">Não foi possível processar sua solicitação. Por favor, tente novamente mais tarde.</p>
+             <p class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative text-center" role="alert">
+                <strong class="font-bold">Detalhes:</strong>
+                <span class="block sm:inline" x-text="errorMessage"></span>
+            </p>
+            <div class="text-center mt-6">
+                 <button @click="location.reload()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    Recarregar Página
+                </button>
+            </div>
+         </div>
+
+        <!-- Modal de Login Admin -->
+        <div x-show="showAdminLogin" class="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-center justify-center" @click.away="showAdminLogin = false">
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4" @click.stop>
+                <h2 class="text-xl font-bold mb-4">Login Administrativo</h2>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Usuário:</label>
+                    <input type="text" x-model="adminUsername" class="w-full px-3 py-2 border border-gray-300 rounded-md admin-area">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Senha:</label>
+                    <input type="password" x-model="adminPassword" class="w-full px-3 py-2 border border-gray-300 rounded-md admin-area">
+                </div>
+                <div class="flex justify-end">
+                    <button @click="showAdminLogin = false" class="bg-gray-500 text-white px-4 py-2 rounded mr-2">Cancelar</button>
+                    <button 
+                        @click="loginAdmin()" 
+                        :disabled="isLoading"
+                        class="bg-blue-600 text-white px-4 py-2 rounded flex items-center"
+                    >
+                        <span x-show="!isLoading">Entrar</span>
+                        <span x-show="isLoading">Entrando...</span>
+                        <svg x-show="isLoading" class="animate-spin ml-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </button>
+                </div>
+                <p x-show="adminErrorMessage" class="text-red-500 mt-4 text-center" x-text="adminErrorMessage"></p>
+            </div>
+        </div>
+
+        <!-- Modal de Edição do Conteúdo -->
+        <div x-show="showAdminPanel" class="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-center justify-center">
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-4xl mx-4 h-5/6 flex flex-col" @click.stop>
+                <h2 class="text-xl font-bold mb-4">Painel Administrativo - Edição de Conteúdo</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow overflow-hidden">
+                    <!-- Editor de Questões -->
+                    <div class="flex flex-col h-full">
+                        <h3 class="font-bold mb-2">Arquivo de Questões (Markdown)</h3>
+                        <textarea 
+                            x-model="examContent" 
+                            class="w-full flex-grow p-3 border border-gray-300 rounded-md markdown-editor admin-area overflow-auto"
+                            placeholder="Cole aqui o conteúdo das questões no formato Markdown"
+                        ></textarea>
+                    </div>
+                    
+                    <!-- Editor de Gabarito -->
+                    <div class="flex flex-col h-full">
+                        <h3 class="font-bold mb-2">Arquivo de Gabarito</h3>
+                        <textarea 
+                            x-model="answersContent" 
+                            class="w-full flex-grow p-3 border border-gray-300 rounded-md markdown-editor admin-area overflow-auto"
+                            placeholder="Cole aqui o gabarito no formato Q1: A"
+                        ></textarea>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end mt-4 space-x-2">
+                    <button 
+                        @click="cancelAdminEdit()" 
+                        class="bg-gray-500 text-white px-4 py-2 rounded"
+                    >
+                        Cancelar
+                    </button>
+                    <button 
+                        @click="saveContent()" 
+                        :disabled="isLoading"
+                        class="bg-green-600 text-white px-4 py-2 rounded flex items-center"
+                    >
+                        <span x-show="!isLoading">Salvar Alterações</span>
+                        <span x-show="isLoading">Salvando...</span>
+                        <svg x-show="isLoading" class="animate-spin ml-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </button>
+                </div>
+                <p x-show="adminErrorMessage" class="text-red-500 mt-4 text-center" x-text="adminErrorMessage"></p>
+                <p x-show="adminSuccessMessage" class="text-green-500 mt-4 text-center" x-text="adminSuccessMessage"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // URL base da API (ajuste se necessário)
+        const API_BASE_URL = 'http://127.0.0.1:8000/api'; // Endereço padrão do uvicorn
+
+        function examApp() {
+            return {
+                // --- State ---
+                examData: null,
+                studentIdentifier: '',
+                currentQuestionIndex: null,
+                answers: {},
+                timeLeft: 0,
+                timerInterval: null,
+                examState: 'initial', // 'initial', 'taking', 'submitted', 'error'
+                submissionResult: null,
+                isLoading: false,
+                errorMessage: '',
+                showIdentifierError: false,
+                
+                // --- Admin State ---
+                showAdminLogin: false,
+                showAdminPanel: false,
+                adminUsername: '',
+                adminPassword: '',
+                adminErrorMessage: '',
+                adminSuccessMessage: '',
+                examContent: '',
+                answersContent: '',
+                adminLoggedIn: false,
+
+                // --- Methods ---
+                validateEmail(email) {
+                    const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+                    return re.test(String(email).toLowerCase());
+                },
+
+                async startExam() {
+                    this.errorMessage = '';
+                    this.showIdentifierError = false;
+                    if (!this.validateEmail(this.studentIdentifier)) {
+                        this.showIdentifierError = true;
+                        return;
+                    }
+
+                    this.isLoading = true;
+                    try {
+                        // Adiciona timestamp para evitar cache
+                        const timestamp = new Date().getTime();
+                        const response = await fetch(`${API_BASE_URL}/exam?t=${timestamp}`);
+                        if (!response.ok) {
+                            throw new Error(`Erro ao buscar prova: ${response.statusText}`);
+                        }
+                        this.examData = await response.json();
+
+                        if (!this.examData || !this.examData.questions || this.examData.questions.length === 0) {
+                             throw new Error('Dados da prova inválidos ou vazios.');
+                        }
+
+                        console.log(`Prova carregada: ${this.examData.questions.length} questões, título: ${this.examData.metadata?.titulo}`);
+                        
+                        this.timeLeft = (this.examData.metadata?.duracao_min || 0) * 60;
+                        this.currentQuestionIndex = 0;
+                        this.answers = {}; // Limpa respostas anteriores
+                        this.examState = 'taking';
+                        this.startTimer();
+
+                    } catch (error) {
+                        console.error('Erro ao iniciar prova:', error);
+                        this.errorMessage = `Falha ao carregar a prova: ${error.message}. Verifique se o backend está rodando.`;
+                        this.examState = 'initial'; // Volta para tela inicial se falhar
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+
+                // --- Admin Methods ---
+                toggleAdminModal() {
+                    if (this.adminLoggedIn) {
+                        this.showAdminPanel = true;
+                        this.loadContent();
+                    } else {
+                        this.showAdminLogin = true;
+                    }
+                },
+                
+                async loginAdmin() {
+                    this.adminErrorMessage = '';
+                    this.isLoading = true;
+                    
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/admin/login`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                username: this.adminUsername,
+                                password: this.adminPassword
+                            }),
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (!response.ok) {
+                            throw new Error(result.detail || 'Credenciais inválidas');
+                        }
+                        
+                        this.adminLoggedIn = true;
+                        this.showAdminLogin = false;
+                        this.showAdminPanel = true;
+                        this.loadContent();
+                        
+                    } catch (error) {
+                        console.error('Erro no login:', error);
+                        this.adminErrorMessage = `${error.message}`;
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+                
+                async loadContent() {
+                    this.adminErrorMessage = '';
+                    this.adminSuccessMessage = '';
+                    this.isLoading = true;
+                    
+                    try {
+                        const response = await fetch(
+                            `${API_BASE_URL}/admin/current-content?username=${this.adminUsername}&password=${this.adminPassword}`, 
+                            { method: 'GET' }
+                        );
+                        
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.detail || 'Falha ao carregar o conteúdo');
+                        }
+                        
+                        const result = await response.json();
+                        this.examContent = result.exam_content;
+                        this.answersContent = result.answers_content;
+                        
+                    } catch (error) {
+                        console.error('Erro ao carregar conteúdo:', error);
+                        this.adminErrorMessage = `Falha ao carregar conteúdo: ${error.message}`;
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+                
+                async saveContent() {
+                    this.adminErrorMessage = '';
+                    this.adminSuccessMessage = '';
+                    this.isLoading = true;
+                    
+                    try {
+                        const response = await fetch(
+                            `${API_BASE_URL}/admin/update-content-query?username=${this.adminUsername}&password=${this.adminPassword}`, 
+                            {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    exam_content: this.examContent,
+                                    answers_content: this.answersContent
+                                }),
+                            }
+                        );
+                        
+                        const result = await response.json();
+                        
+                        if (!response.ok) {
+                            throw new Error(result.detail || 'Falha ao salvar conteúdo');
+                        }
+                        
+                        this.adminSuccessMessage = `Conteúdo atualizado com sucesso! (${result.questions_count} questões, ${result.answers_count} respostas)`;
+                        
+                        // Fechar o painel admin
+                        setTimeout(() => {
+                            this.showAdminPanel = false;
+                            // Voltar para a tela inicial
+                            if (this.examState === 'taking') {
+                                // Se estiver fazendo prova, voltar para página inicial
+                                if (confirm('Conteúdo atualizado com sucesso. É necessário reiniciar a prova para ver as mudanças. Voltar à tela inicial?')) {
+                                    this.examState = 'initial';
+                                    clearInterval(this.timerInterval);
+                                }
+                            }
+                        }, 2000);
+                        
+                    } catch (error) {
+                        console.error('Erro ao salvar conteúdo:', error);
+                        this.adminErrorMessage = `Falha ao salvar: ${error.message}`;
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+                
+                async reloadExamData() {
+                    // Se o usuário estiver fazendo a prova, atualize os dados
+                    if (this.examState === 'taking') {
+                        try {
+                            const response = await fetch(`${API_BASE_URL}/exam`);
+                            if (!response.ok) {
+                                throw new Error(`Erro ao buscar prova atualizada: ${response.statusText}`);
+                            }
+                            this.examData = await response.json();
+                            console.log("Dados da prova recarregados com sucesso");
+                        } catch (error) {
+                            console.error('Erro ao recarregar prova:', error);
+                        }
+                    }
+                },
+                
+                cancelAdminEdit() {
+                    this.showAdminPanel = false;
+                    this.adminErrorMessage = '';
+                    this.adminSuccessMessage = '';
+                },
+                
+                allowCopyInAdmin(event) {
+                    // Verificar se o elemento está dentro da admin-area
+                    if (event.target.closest('.admin-area')) {
+                        return true; // Permite a cópia
+                    }
+                },
+                
+                allowCutInAdmin(event) {
+                    if (event.target.closest('.admin-area')) {
+                        return true;
+                    }
+                },
+                
+                allowPasteInAdmin(event) {
+                    if (event.target.closest('.admin-area')) {
+                        return true;
+                    }
+                },
+                
+                allowContextInAdmin(event) {
+                    if (event.target.closest('.admin-area')) {
+                        return true;
+                    }
+                },
+
+                startTimer() {
+                    if (this.timerInterval) clearInterval(this.timerInterval);
+                    this.timerInterval = setInterval(() => {
+                        if (this.timeLeft > 0) {
+                            this.timeLeft--;
+                        } else {
+                            clearInterval(this.timerInterval);
+                            alert('Tempo esgotado! A prova será enviada.');
+                            this.submitExam(true); // Auto-submete se o tempo acabar
+                        }
+                    }, 1000);
+                },
+
+                formatTime(seconds) {
+                    const minutes = Math.floor(seconds / 60);
+                    const remainingSeconds = seconds % 60;
+                    return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+                },
+
+                selectAnswer(questionNumber, optionIndex) {
+                    // Garante que questionNumber seja tratado como número
+                    questionNumber = parseInt(questionNumber);
+                    // Armazena a resposta
+                    this.answers[questionNumber] = optionIndex;
+                },
+
+                isAnswerSelected(questionNumber) {
+                    // Garante que questionNumber seja tratado como número
+                    questionNumber = parseInt(questionNumber);
+                    // Verifica se há uma resposta para esta questão
+                    const selected = questionNumber in this.answers && this.answers[questionNumber] !== undefined;
+                    return selected;
+                },
+
+                nextQuestion() {
+                    // Verifica se a resposta para a questão ATUAL foi selecionada antes de avançar
+                    const currentQNumber = parseInt(this.examData.questions[this.currentQuestionIndex]?.question_number);
+                    if (!this.isAnswerSelected(currentQNumber)) {
+                        console.warn('Tentativa de avançar sem selecionar resposta.');
+                        return;
+                    }
+
+                    if (this.currentQuestionIndex < this.examData.questions.length - 1) {
+                        this.currentQuestionIndex++;
+                        this.errorMessage = ''; // Limpa erro ao avançar
+                    } else {
+                        console.warn('Tentativa de ir além da última questão.');
+                    }
+                },
+
+                async submitExam(isAutoSubmit = false) {
+                    if (!isAutoSubmit) {
+                        // Verifica se a ÚLTIMA questão foi respondida no caso de submissão manual
+                         const lastQNumber = parseInt(this.examData.questions[this.currentQuestionIndex]?.question_number);
+                        if (!this.isAnswerSelected(lastQNumber)) {
+                            console.warn('Tentativa de finalizar sem responder a última questão.');
+                            this.errorMessage = 'Por favor, responda a questão atual antes de finalizar.';
+                            return;
+                        }
+                    }
+
+                    if (Object.keys(this.answers).length !== this.examData.questions.length && !isAutoSubmit) {
+                         // Alerta se nem todas foram respondidas (exceto auto-submit por tempo)
+                         if (!confirm('Você não respondeu todas as questões. Deseja finalizar mesmo assim?')) {
+                            return;
+                        }
+                    }
+
+                    clearInterval(this.timerInterval); // Para o timer
+                    this.isLoading = true;
+                    this.errorMessage = '';
+
+                    const submissionData = {
+                        student_identifier: this.studentIdentifier,
+                        answers: Object.entries(this.answers).map(([qNum, optIdx]) => ({
+                            question_number: parseInt(qNum),
+                            selected_option_index: optIdx
+                        }))
+                    };
+
+                    // Garante que todas as questões tenham uma resposta (pelo menos nula) se não foram respondidas
+                    const answeredQuestionNumbers = new Set(submissionData.answers.map(a => a.question_number));
+                    this.examData.questions.forEach(q => {
+                        if (!answeredQuestionNumbers.has(q.question_number)) {
+                            submissionData.answers.push({
+                                question_number: q.question_number,
+                                selected_option_index: -1 // Ou outro indicador de não respondido
+                            });
+                        }
+                    });
+                    submissionData.answers.sort((a, b) => a.question_number - b.question_number); // Ordena para garantir consistência
+
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/submit`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(submissionData),
+                        });
+
+                        const result = await response.json();
+
+                        if (!response.ok) {
+                            throw new Error(result.detail || `Erro ao enviar respostas: ${response.statusText}`);
+                        }
+
+                        this.submissionResult = result;
+                        this.examState = 'submitted';
+
+                    } catch (error) {
+                        console.error('Erro ao submeter prova:', error);
+                        this.errorMessage = `Falha ao enviar respostas: ${error.message}. Tente novamente mais tarde.`;
+                        this.examState = 'error';
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+
+                // Tentativa de bloquear PrintScreen (pouco confiável)
+                handleKeyUp(event) {
+                    if (event.key === 'PrintScreen' || event.keyCode === 44) {
+                        event.preventDefault();
+                        // Tenta obscurecer a tela temporariamente
+                        document.body.style.opacity = '0';
+                        setTimeout(() => { document.body.style.opacity = '1'; }, 100);
+                        alert('A captura de tela foi bloqueada.');
+                    }
+                }
+            };
+        }
+    </script>
+
+</body>
+</html>

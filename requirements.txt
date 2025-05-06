@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+markdown
+aiosmtplib
+jinja2
+python-dotenv

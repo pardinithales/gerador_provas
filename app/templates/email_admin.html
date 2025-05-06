@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Submissão de Prova: {{ exam_title }}</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; }
+        .container { max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; }
+        h1, h2 { color: #333; }
+        .info { margin-bottom: 10px; }
+        .incorrect-list li { margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dashed #eee; }
+        .question-text { font-weight: bold; }
+        .correct-answer { color: green; font-weight: bold; }
+        .incorrect-answer { color: red; text-decoration: line-through; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Nova Submissão de Prova Recebida</h1>
+        <p class="info"><strong>Título da Prova:</strong> {{ exam_title }}</p>
+        <p class="info"><strong>Aluno:</strong> {{ student_identifier }}</p>
+        <p class="info"><strong>Data/Hora:</strong> {{ timestamp }}</p>
+        <p class="info"><strong>Pontuação:</strong> {{ result.score }}% ({{ result.correct_answers }}/{{ result.total_questions }})</p>
+
+        {% if result.incorrect_questions %}
+            <h2>Questões Erradas ({{ result.incorrect_questions|length }}):</h2>
+            <ul class="incorrect-list">
+                {% for item in result.incorrect_questions %}
+                    <li>
+                        <span class="question-text">Q{{ item.question_number }}. {{ item.text }}</span><br>
+                        <span class="incorrect-answer">Resposta do aluno: {{ item.submitted_answer_text }}</span><br>
+                        <span class="correct-answer">Resposta Correta: {{ item.correct_answer_text }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>O aluno acertou todas as questões.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

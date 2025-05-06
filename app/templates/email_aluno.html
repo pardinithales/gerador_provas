@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Resultado da Prova: {{ exam_title }}</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; }
+        .container { max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; }
+        h1, h2 { color: #333; }
+        .score { font-size: 1.2em; font-weight: bold; margin-bottom: 15px; }
+        .incorrect-list li { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px dashed #eee; }
+        .question-text { font-weight: bold; }
+        .correct-answer { color: green; font-weight: bold; }
+        .incorrect-answer { color: red; text-decoration: line-through; }
+        .summary-box { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Resultado da Prova: {{ exam_title }}</h1>
+        
+        <div class="summary-box">
+            <p>Olá {{ student_identifier }},</p>
+            <p>Seu resultado na prova realizada em {{ timestamp }}:</p>
+            <p class="score">Pontuação: {{ result.score }}% ({{ result.correct_answers }}/{{ result.total_questions }} questões corretas)</p>
+        </div>
+
+        {% if result.incorrect_questions %}
+            <h2>Questões Erradas ({{ result.incorrect_questions|length }}):</h2>
+            <ul class="incorrect-list">
+                {% for item in result.incorrect_questions %}
+                    <li>
+                        <span class="question-text">Q{{ item.question_number }}. {{ item.text }}</span><br>
+                        <span class="incorrect-answer">Sua resposta: {{ item.submitted_answer_text }}</span><br>
+                        <span class="correct-answer">Resposta Correta: {{ item.correct_answer_text }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>Parabéns, você acertou todas as questões!</p>
+        {% endif %}
+
+        <p>Atenciosamente,</p>
+        <p>Sistema de Provas</p>
+    </div>
+</body>
+</html>
