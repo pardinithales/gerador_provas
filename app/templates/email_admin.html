@@ -4,38 +4,161 @@
     <meta charset="UTF-8">
     <title>Submissão de Prova: {{ exam_title }}</title>
     <style>
-        body { font-family: sans-serif; line-height: 1.6; }
-        .container { max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; }
-        h1, h2 { color: #333; }
-        .info { margin-bottom: 10px; }
-        .incorrect-list li { margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dashed #eee; }
-        .question-text { font-weight: bold; }
-        .correct-answer { color: green; font-weight: bold; }
-        .incorrect-answer { color: red; text-decoration: line-through; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            line-height: 1.6; 
+            color: #333;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 0;
+        }
+        .container { 
+            max-width: 650px; 
+            margin: 20px auto; 
+            padding: 30px; 
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { 
+            color: #4f46e5; 
+            margin-top: 0;
+            font-size: 24px;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 10px;
+        }
+        h2 { 
+            color: #4b5563; 
+            font-size: 18px;
+            margin-top: 30px;
+        }
+        .student-info {
+            background-color: #f3f4f6;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border-left: 4px solid #4f46e5;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+        .info-label {
+            font-weight: 500;
+            color: #6b7280;
+        }
+        .info-value {
+            font-weight: 600;
+        }
+        .score-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #4f46e5;
+        }
+        .question-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+            background-color: #fff;
+        }
+        .question-number {
+            font-weight: bold;
+            color: #4b5563;
+            margin-bottom: 8px;
+            display: inline-block;
+            background-color: #e5e7eb;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+        .question-text { 
+            font-weight: 500; 
+            margin-bottom: 12px;
+            display: block;
+        }
+        .correct-answer { 
+            color: #047857; 
+            font-weight: 500; 
+            padding: 8px 12px;
+            background-color: #ecfdf5;
+            border-radius: 4px;
+            margin-top: 8px;
+            display: block;
+        }
+        .incorrect-answer { 
+            color: #b91c1c; 
+            padding: 8px 12px;
+            background-color: #fef2f2;
+            border-radius: 4px;
+            margin-top: 8px;
+            display: block;
+            text-decoration: none;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 14px;
+            color: #6b7280;
+        }
+        .success-message {
+            background-color: #ecfdf5;
+            border-left: 4px solid #10b981;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Nova Submissão de Prova Recebida</h1>
-        <p class="info"><strong>Título da Prova:</strong> {{ exam_title }}</p>
-        <p class="info"><strong>Aluno:</strong> {{ student_identifier }}</p>
-        <p class="info"><strong>Data/Hora:</strong> {{ timestamp }}</p>
-        <p class="info"><strong>Pontuação:</strong> {{ result.score }}% ({{ result.correct_answers }}/{{ result.total_questions }})</p>
+        <h1>Nova Submissão de Prova</h1>
+        
+        <div class="student-info">
+            <div class="info-grid">
+                <span class="info-label">Prova:</span>
+                <span class="info-value">{{ exam_title }}</span>
+            </div>
+            <div class="info-grid">
+                <span class="info-label">Aluno:</span>
+                <span class="info-value">{{ student_identifier }}</span>
+            </div>
+            <div class="info-grid">
+                <span class="info-label">Data/Hora:</span>
+                <span class="info-value">{{ timestamp }}</span>
+            </div>
+            <div class="info-grid">
+                <span class="info-label">Pontuação:</span>
+                <span class="score-value">{{ result.score }}%</span>
+                <span class="info-label"></span>
+                <span class="info-value">{{ result.correct_answers }} de {{ result.total_questions }} questões corretas</span>
+            </div>
+        </div>
 
         {% if result.incorrect_questions %}
             <h2>Questões Erradas ({{ result.incorrect_questions|length }}):</h2>
-            <ul class="incorrect-list">
+            <div class="questions-container">
                 {% for item in result.incorrect_questions %}
-                    <li>
-                        <span class="question-text">Q{{ item.question_number }}. {{ item.text }}</span><br>
-                        <span class="incorrect-answer">Resposta do aluno: {{ item.submitted_answer_text }}</span><br>
-                        <span class="correct-answer">Resposta Correta: {{ item.correct_answer_text }}</span>
-                    </li>
+                    <div class="question-card">
+                        <span class="question-number">Questão {{ item.question_number }}</span>
+                        <span class="question-text">{{ item.text }}</span>
+                        <span class="incorrect-answer">🗙 Resposta do aluno: {{ item.submitted_answer_text }}</span>
+                        <span class="correct-answer">✓ Resposta correta: {{ item.correct_answer_text }}</span>
+                    </div>
                 {% endfor %}
-            </ul>
+            </div>
         {% else %}
-            <p>O aluno acertou todas as questões.</p>
+            <div class="success-message">
+                <p style="font-weight: bold; color: #047857; margin: 0;">O aluno acertou todas as questões. 🎉</p>
+            </div>
         {% endif %}
+
+        <div class="footer">
+            <p>Este é um e-mail automático. Por favor, não responda.</p>
+            <p>Sistema de Avaliação</p>
+        </div>
     </div>
 </body>
 </html>
