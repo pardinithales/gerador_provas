@@ -211,73 +211,113 @@
             </div>
         </div>
 
-        <!-- Modal de Edição do Conteúdo -->
-        <div x-show="showAdminPanel" class="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-center justify-center">
-            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-4xl mx-4 h-5/6 flex flex-col" @click.stop>
-                <h2 class="text-xl font-bold mb-4">Painel Administrativo - Edição de Conteúdo</h2>
+        <!-- Modal do Painel Admin -->
+        <div x-show="showAdminPanel" class="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex" @click.away="showAdminPanel = false">
+            <div class="bg-white rounded-lg shadow-xl p-6 mx-auto my-8 w-full max-w-4xl" @click.stop>
+                <h2 class="text-xl font-bold mb-2">Painel de Administração</h2>
+                <p class="text-gray-500 text-sm mb-4">Edite o conteúdo da prova e do gabarito</p>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow overflow-hidden">
-                    <!-- Editor de Questões -->
-                    <div class="flex flex-col h-full">
-                        <div class="flex justify-between items-center mb-1">
-                            <h3 class="font-bold">Arquivo de Questões (Markdown)</h3>
-                            <div>
-                                <!-- Botão Apagar Questões -->
-                                <button @click="clearTextarea('examContent')" class="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded mr-1">Apagar</button>
-                                <!-- Botão Colar Questões -->
-                                <button @click="pasteFromClipboard('examContent')" class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded">Colar</button>
+                <div class="mb-3" x-show="adminSuccessMessage">
+                    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+                        <span class="block sm:inline" x-text="adminSuccessMessage"></span>
+                    </div>
+                </div>
+
+                <div class="mb-3" x-show="adminErrorMessage">
+                    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                        <span class="block sm:inline" x-text="adminErrorMessage"></span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Seção Exame -->
+                    <div>
+                        <h3 class="text-lg font-semibold mb-2">Conteúdo da Prova</h3>
+                        
+                        <!-- Upload de arquivo da prova -->
+                        <div class="mb-4 p-3 border rounded-md bg-gray-50">
+                            <p class="text-sm font-medium mb-2">Enviar arquivo .md</p>
+                            <div class="flex items-center">
+                                <input 
+                                    type="file" 
+                                    id="examFile" 
+                                    accept=".md" 
+                                    class="admin-area" 
+                                    @change="examFileSelected = $event.target.files[0]"
+                                />
+                                <button 
+                                    @click="uploadExamFile()"
+                                    :disabled="!examFileSelected"
+                                    class="ml-2 bg-blue-600 text-white px-3 py-1 rounded text-sm disabled:opacity-50"
+                                >
+                                    Enviar
+                                </button>
                             </div>
                         </div>
-                        <textarea
+                        
+                        <div class="flex space-x-2 mb-2">
+                            <button @click="clearTextarea('examContent')" class="bg-red-500 text-white px-3 py-1 rounded text-sm">Apagar</button>
+                            <button @click="pasteFromClipboard('examContent')" class="bg-gray-500 text-white px-3 py-1 rounded text-sm">Colar</button>
+                        </div>
+                        <textarea 
                             x-model="examContent"
-                            class="w-full flex-grow p-3 border border-gray-300 rounded-md markdown-editor admin-area overflow-auto"
-                            placeholder="Cole aqui o conteúdo das questões no formato Markdown"
-                            id="examContentArea" <!-- Adicionado ID para referência se necessário -->
+                            class="admin-area w-full border border-gray-300 rounded-md p-2 font-mono text-sm markdown-editor"
+                            placeholder="Conteúdo do arquivo de prova (em formato Markdown)"
                         ></textarea>
                     </div>
 
-                    <!-- Editor de Gabarito -->
-                    <div class="flex flex-col h-full">
-                         <div class="flex justify-between items-center mb-1">
-                            <h3 class="font-bold">Arquivo de Gabarito</h3>
-                            <div>
-                                <!-- Botão Apagar Gabarito -->
-                                <button @click="clearTextarea('answersContent')" class="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded mr-1">Apagar</button>
-                                <!-- Botão Colar Gabarito -->
-                                <button @click="pasteFromClipboard('answersContent')" class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded">Colar</button>
+                    <!-- Seção Gabarito -->
+                    <div>
+                        <h3 class="text-lg font-semibold mb-2">Conteúdo do Gabarito</h3>
+                        
+                        <!-- Upload de arquivo de gabarito -->
+                        <div class="mb-4 p-3 border rounded-md bg-gray-50">
+                            <p class="text-sm font-medium mb-2">Enviar arquivo .md</p>
+                            <div class="flex items-center">
+                                <input 
+                                    type="file" 
+                                    id="answersFile" 
+                                    accept=".md" 
+                                    class="admin-area" 
+                                    @change="answersFileSelected = $event.target.files[0]"
+                                />
+                                <button 
+                                    @click="uploadAnswersFile()"
+                                    :disabled="!answersFileSelected"
+                                    class="ml-2 bg-blue-600 text-white px-3 py-1 rounded text-sm disabled:opacity-50"
+                                >
+                                    Enviar
+                                </button>
                             </div>
                         </div>
-                        <textarea
+                        
+                        <div class="flex space-x-2 mb-2">
+                            <button @click="clearTextarea('answersContent')" class="bg-red-500 text-white px-3 py-1 rounded text-sm">Apagar</button>
+                            <button @click="pasteFromClipboard('answersContent')" class="bg-gray-500 text-white px-3 py-1 rounded text-sm">Colar</button>
+                        </div>
+                        <textarea 
                             x-model="answersContent"
-                            class="w-full flex-grow p-3 border border-gray-300 rounded-md markdown-editor admin-area overflow-auto"
-                            placeholder="Cole aqui o gabarito no formato Q1: A"
-                            id="answersContentArea" <!-- Adicionado ID para referência se necessário -->
+                            class="admin-area w-full border border-gray-300 rounded-md p-2 font-mono text-sm markdown-editor"
+                            placeholder="Conteúdo do arquivo de gabarito (em formato Markdown)"
                         ></textarea>
                     </div>
                 </div>
 
-                <div class="flex justify-end mt-4 space-x-2">
-                    <button
-                        @click="cancelAdminEdit()"
-                        class="bg-gray-500 text-white px-4 py-2 rounded"
-                    >
-                        Cancelar
-                    </button>
-                    <button
+                <div class="flex justify-end mt-4 space-x-3">
+                    <button @click="cancelAdminEdit()" class="bg-gray-500 text-white px-4 py-2 rounded">Cancelar</button>
+                    <button 
                         @click="saveContent()"
                         :disabled="isLoading"
-                        class="bg-green-600 text-white px-4 py-2 rounded flex items-center"
+                        class="bg-blue-600 text-white px-4 py-2 rounded flex items-center"
                     >
                         <span x-show="!isLoading">Salvar Alterações</span>
                         <span x-show="isLoading">Salvando...</span>
-                        <svg x-show="isLoading" class="animate-spin ml-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <svg x-show="isLoading" class="animate-spin -mr-1 ml-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                     </button>
                 </div>
-                <p x-show="adminErrorMessage" class="text-red-500 mt-4 text-center" x-text="adminErrorMessage"></p>
-                <p x-show="adminSuccessMessage" class="text-green-500 mt-4 text-center" x-text="adminSuccessMessage"></p>
             </div>
         </div>
     </div>
@@ -311,6 +351,10 @@
                 examContent: '',
                 answersContent: '',
                 adminLoggedIn: false,
+
+                // --- Métodos para Upload de Arquivos ---
+                examFileSelected: null,
+                answersFileSelected: null,
 
                 // --- Methods ---
                 validateEmail(email) {
@@ -666,7 +710,94 @@
                         setTimeout(() => { document.body.style.opacity = '1'; }, 100);
                         alert('A captura de tela foi bloqueada.');
                     }
-                }
+                },
+
+                // --- Métodos para Upload de Arquivos ---
+                async uploadExamFile() {
+                    if (!this.examFileSelected) {
+                        this.adminErrorMessage = 'Selecione um arquivo para upload';
+                        return;
+                    }
+                    
+                    this.isLoading = true;
+                    this.adminErrorMessage = '';
+                    this.adminSuccessMessage = '';
+                    
+                    try {
+                        const formData = new FormData();
+                        formData.append('file', this.examFileSelected);
+                        
+                        const response = await fetch(
+                            `${API_BASE_URL}/admin/upload-exam?username=${this.adminUsername}&password=${this.adminPassword}`,
+                            {
+                                method: 'POST',
+                                body: formData
+                            }
+                        );
+                        
+                        const result = await response.json();
+                        
+                        if (!response.ok) {
+                            throw new Error(result.detail || 'Falha ao enviar arquivo');
+                        }
+                        
+                        this.adminSuccessMessage = `Arquivo de exame enviado com sucesso! ${result.questions_count} questões carregadas.`;
+                        document.getElementById('examFile').value = ''; // Limpa o input file
+                        this.examFileSelected = null;
+                        
+                        // Recarrega o conteúdo para atualizar as textareas
+                        await this.loadContent();
+                        
+                    } catch (error) {
+                        console.error('Erro ao fazer upload:', error);
+                        this.adminErrorMessage = `Falha ao enviar arquivo: ${error.message}`;
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+                
+                async uploadAnswersFile() {
+                    if (!this.answersFileSelected) {
+                        this.adminErrorMessage = 'Selecione um arquivo para upload';
+                        return;
+                    }
+                    
+                    this.isLoading = true;
+                    this.adminErrorMessage = '';
+                    this.adminSuccessMessage = '';
+                    
+                    try {
+                        const formData = new FormData();
+                        formData.append('file', this.answersFileSelected);
+                        
+                        const response = await fetch(
+                            `${API_BASE_URL}/admin/upload-answers?username=${this.adminUsername}&password=${this.adminPassword}`,
+                            {
+                                method: 'POST',
+                                body: formData
+                            }
+                        );
+                        
+                        const result = await response.json();
+                        
+                        if (!response.ok) {
+                            throw new Error(result.detail || 'Falha ao enviar arquivo');
+                        }
+                        
+                        this.adminSuccessMessage = `Arquivo de gabarito enviado com sucesso! ${result.answers_count} respostas carregadas.`;
+                        document.getElementById('answersFile').value = ''; // Limpa o input file
+                        this.answersFileSelected = null;
+                        
+                        // Recarrega o conteúdo para atualizar as textareas
+                        await this.loadContent();
+                        
+                    } catch (error) {
+                        console.error('Erro ao fazer upload:', error);
+                        this.adminErrorMessage = `Falha ao enviar arquivo: ${error.message}`;
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
             };
         }
     </script>

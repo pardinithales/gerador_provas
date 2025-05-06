@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Body, Query
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Body, Query, UploadFile, File
 from typing import Dict, Optional
 import datetime
 import logging
 import os
 import hashlib
+import shutil
 
 from app.schemas.exam import ExamDataSchema, SubmissionSchema, ResultSchema, AdminLoginSchema, ContentUpdateSchema
 from app.services.parser import parsed_exam_data, parsed_correct_answers, reload_exam_data
@@ -234,3 +235,63 @@ async def update_content_query(
         import traceback
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Erro ao atualizar conteúdo: {str(e)}")
+
+@router.post("/admin/upload-exam")
+async def upload_exam_file(
+    file: UploadFile = File(...),
+    admin: str = Depends(admin_auth_query)
+):
+    """Faz upload de um arquivo MD para o conteúdo do exame."""
+    try:
+        if not file.filename.endswith('.md'):
+            raise HTTPException(status_code=400, detail="Apenas arquivos Markdown (.md) são permitidos")
+        
+        # Salva o arquivo temporário
+        with open("app/exam.md", "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Força a recarga dos dados
+        logger.info("Forçando recarga dos dados após upload do arquivo de exame...")
+        new_exam_data, new_answers = reload_exam_data()
+        
+        return {
+            "success": True, 
+            "message": "Arquivo de exame enviado com sucesso",
+            "filename": file.filename,
+            "questions_count": len(new_exam_data.questions)
+        }
+    except Exception as e:
+        logger.error(f"Erro ao fazer upload do arquivo de exame: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Erro ao fazer upload do arquivo: {str(e)}")
+
+@router.post("/admin/upload-answers")
+async def upload_answers_file(
+    file: UploadFile = File(...),
+    admin: str = Depends(admin_auth_query)
+):
+    """Faz upload de um arquivo MD para o gabarito."""
+    try:
+        if not file.filename.endswith('.md'):
+            raise HTTPException(status_code=400, detail="Apenas arquivos Markdown (.md) são permitidos")
+        
+        # Salva o arquivo temporário
+        with open("app/gabarito.md", "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Força a recarga dos dados
+        logger.info("Forçando recarga dos dados após upload do arquivo de gabarito...")
+        new_exam_data, new_answers = reload_exam_data()
+        
+        return {
+            "success": True, 
+            "message": "Arquivo de gabarito enviado com sucesso",
+            "filename": file.filename,
+            "answers_count": len(new_answers)
+        }
+    except Exception as e:
+        logger.error(f"Erro ao fazer upload do arquivo de gabarito: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Erro ao fazer upload do arquivo: {str(e)}")
