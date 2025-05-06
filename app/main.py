@@ -22,7 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(exam.router, prefix="/api", tags=["Exams"])
+app.include_router(exam.router, tags=["Exams"])
 
 @app.get("/health", tags=["Health Check"])
 def health_check():
