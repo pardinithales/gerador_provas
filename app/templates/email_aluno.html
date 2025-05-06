@@ -20,9 +20,9 @@
         <h1>Resultado da Prova: {{ exam_title }}</h1>
         
         <div class="summary-box">
-            <p>Olá {{ student_identifier }},</p>
-            <p>Seu resultado na prova realizada em {{ timestamp }}:</p>
-            <p class="score">Pontuação: {{ result.score }}% ({{ result.correct_answers }}/{{ result.total_questions }} questões corretas)</p>
+        <p>Olá {{ student_identifier }},</p>
+        <p>Seu resultado na prova realizada em {{ timestamp }}:</p>
+        <p class="score">Pontuação: {{ result.score }}% ({{ result.correct_answers }}/{{ result.total_questions }} questões corretas)</p>
         </div>
 
         {% if result.incorrect_questions %}
