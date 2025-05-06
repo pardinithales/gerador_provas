@@ -22,13 +22,13 @@
              background-color: #bfdbfe; /* light blue */
              border-color: #3b82f6; /* blue */
         }
-        
+
         /* Estilo para o editor Markdown */
         .markdown-editor {
             font-family: monospace;
             min-height: 300px;
         }
-        
+
         /* Remove anti-seleção para as áreas de admin */
         .admin-area {
             user-select: text !important;
@@ -42,9 +42,7 @@
 
     <div
         x-data="examApp()"
-        @copy="handleCopy($event)"
-        @cut="handleCut($event)"
-        @paste="handlePaste($event)"
+        {{/* Removed @copy, @cut, @paste bindings as they are replaced by buttons */}}
         @contextmenu.prevent="allowContextInAdmin($event)"
         @keyup.window="handleKeyUp($event)"
         class="bg-white p-6 sm:p-8 rounded-lg shadow-lg w-full max-w-2xl select-none"
@@ -59,7 +57,7 @@
                 Admin
             </button>
         </div>
-        
+
         <!-- Tela Inicial / Identificação -->
         <div x-show="examState === 'initial'" x-transition>
             <p class="text-gray-600 mb-6 text-center">Insira seu e-mail para iniciar a prova.</p>
@@ -196,8 +194,8 @@
                 </div>
                 <div class="flex justify-end">
                     <button @click="showAdminLogin = false" class="bg-gray-500 text-white px-4 py-2 rounded mr-2">Cancelar</button>
-                    <button 
-                        @click="loginAdmin()" 
+                    <button
+                        @click="loginAdmin()"
                         :disabled="isLoading"
                         class="bg-blue-600 text-white px-4 py-2 rounded flex items-center"
                     >
@@ -217,38 +215,56 @@
         <div x-show="showAdminPanel" class="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-center justify-center">
             <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-4xl mx-4 h-5/6 flex flex-col" @click.stop>
                 <h2 class="text-xl font-bold mb-4">Painel Administrativo - Edição de Conteúdo</h2>
-                
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow overflow-hidden">
                     <!-- Editor de Questões -->
                     <div class="flex flex-col h-full">
-                        <h3 class="font-bold mb-2">Arquivo de Questões (Markdown)</h3>
-                        <textarea 
-                            x-model="examContent" 
+                        <div class="flex justify-between items-center mb-1">
+                            <h3 class="font-bold">Arquivo de Questões (Markdown)</h3>
+                            <div>
+                                <!-- Botão Apagar Questões -->
+                                <button @click="clearTextarea('examContent')" class="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded mr-1">Apagar</button>
+                                <!-- Botão Colar Questões -->
+                                <button @click="pasteFromClipboard('examContent')" class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded">Colar</button>
+                            </div>
+                        </div>
+                        <textarea
+                            x-model="examContent"
                             class="w-full flex-grow p-3 border border-gray-300 rounded-md markdown-editor admin-area overflow-auto"
                             placeholder="Cole aqui o conteúdo das questões no formato Markdown"
+                            id="examContentArea" <!-- Adicionado ID para referência se necessário -->
                         ></textarea>
                     </div>
-                    
+
                     <!-- Editor de Gabarito -->
                     <div class="flex flex-col h-full">
-                        <h3 class="font-bold mb-2">Arquivo de Gabarito</h3>
-                        <textarea 
-                            x-model="answersContent" 
+                         <div class="flex justify-between items-center mb-1">
+                            <h3 class="font-bold">Arquivo de Gabarito</h3>
+                            <div>
+                                <!-- Botão Apagar Gabarito -->
+                                <button @click="clearTextarea('answersContent')" class="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded mr-1">Apagar</button>
+                                <!-- Botão Colar Gabarito -->
+                                <button @click="pasteFromClipboard('answersContent')" class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded">Colar</button>
+                            </div>
+                        </div>
+                        <textarea
+                            x-model="answersContent"
                             class="w-full flex-grow p-3 border border-gray-300 rounded-md markdown-editor admin-area overflow-auto"
                             placeholder="Cole aqui o gabarito no formato Q1: A"
+                            id="answersContentArea" <!-- Adicionado ID para referência se necessário -->
                         ></textarea>
                     </div>
                 </div>
-                
+
                 <div class="flex justify-end mt-4 space-x-2">
-                    <button 
-                        @click="cancelAdminEdit()" 
+                    <button
+                        @click="cancelAdminEdit()"
                         class="bg-gray-500 text-white px-4 py-2 rounded"
                     >
                         Cancelar
                     </button>
-                    <button 
-                        @click="saveContent()" 
+                    <button
+                        @click="saveContent()"
                         :disabled="isLoading"
                         class="bg-green-600 text-white px-4 py-2 rounded flex items-center"
                     >
@@ -267,8 +283,8 @@
     </div>
 
     <script>
-        // URL base da API (ajuste se necessário)
-        const API_BASE_URL = 'http://127.0.0.1:8000/api'; // Endereço padrão do uvicorn
+        // URL base da API (usa caminho relativo para funcionar em produção)
+        const API_BASE_URL = '/api'; // Endereço relativo
 
         function examApp() {
             return {
@@ -284,7 +300,7 @@
                 isLoading: false,
                 errorMessage: '',
                 showIdentifierError: false,
-                
+
                 // --- Admin State ---
                 showAdminLogin: false,
                 showAdminPanel: false,
@@ -314,9 +330,10 @@
                     try {
                         // Adiciona timestamp para evitar cache
                         const timestamp = new Date().getTime();
-                        const response = await fetch(`${API_BASE_URL}/exam?t=${timestamp}`);
+                        const response = await fetch(`${API_BASE_URL}/exam?t=${timestamp}`); // API_BASE_URL já tem /api
                         if (!response.ok) {
-                            throw new Error(`Erro ao buscar prova: ${response.statusText}`);
+                             const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+                            throw new Error(errorData.detail || `Erro ao buscar prova: ${response.status}`);
                         }
                         this.examData = await response.json();
 
@@ -325,7 +342,7 @@
                         }
 
                         console.log(`Prova carregada: ${this.examData.questions.length} questões, título: ${this.examData.metadata?.titulo}`);
-                        
+
                         this.timeLeft = (this.examData.metadata?.duracao_min || 0) * 60;
                         this.currentQuestionIndex = 0;
                         this.answers = {}; // Limpa respostas anteriores
@@ -334,7 +351,7 @@
 
                     } catch (error) {
                         console.error('Erro ao iniciar prova:', error);
-                        this.errorMessage = `Falha ao carregar a prova: ${error.message}. Verifique se o backend está rodando.`;
+                        this.errorMessage = `Falha ao carregar a prova: ${error.message}. Verifique se o backend está rodando ou se há erros no console.`;
                         this.examState = 'initial'; // Volta para tela inicial se falhar
                     } finally {
                         this.isLoading = false;
@@ -350,12 +367,13 @@
                         this.showAdminLogin = true;
                     }
                 },
-                
+
                 async loginAdmin() {
                     this.adminErrorMessage = '';
                     this.isLoading = true;
-                    
+
                     try {
+                        // Login usa o /api prefixado no endpoint
                         const response = await fetch(`${API_BASE_URL}/admin/login`, {
                             method: 'POST',
                             headers: {
@@ -366,18 +384,18 @@
                                 password: this.adminPassword
                             }),
                         });
-                        
+
                         const result = await response.json();
-                        
+
                         if (!response.ok) {
                             throw new Error(result.detail || 'Credenciais inválidas');
                         }
-                        
+
                         this.adminLoggedIn = true;
                         this.showAdminLogin = false;
                         this.showAdminPanel = true;
-                        this.loadContent();
-                        
+                        this.loadContent(); // Carrega o conteúdo após login bem-sucedido
+
                     } catch (error) {
                         console.error('Erro no login:', error);
                         this.adminErrorMessage = `${error.message}`;
@@ -385,27 +403,28 @@
                         this.isLoading = false;
                     }
                 },
-                
+
                 async loadContent() {
                     this.adminErrorMessage = '';
                     this.adminSuccessMessage = '';
                     this.isLoading = true;
-                    
+
                     try {
+                         // Load content usa /api prefixado no endpoint
                         const response = await fetch(
-                            `${API_BASE_URL}/admin/current-content?username=${this.adminUsername}&password=${this.adminPassword}`, 
+                            `${API_BASE_URL}/admin/current-content?username=${this.adminUsername}&password=${this.adminPassword}`,
                             { method: 'GET' }
                         );
-                        
+
                         if (!response.ok) {
                             const errorData = await response.json();
                             throw new Error(errorData.detail || 'Falha ao carregar o conteúdo');
                         }
-                        
+
                         const result = await response.json();
                         this.examContent = result.exam_content;
                         this.answersContent = result.answers_content;
-                        
+
                     } catch (error) {
                         console.error('Erro ao carregar conteúdo:', error);
                         this.adminErrorMessage = `Falha ao carregar conteúdo: ${error.message}`;
@@ -413,15 +432,16 @@
                         this.isLoading = false;
                     }
                 },
-                
+
                 async saveContent() {
                     this.adminErrorMessage = '';
                     this.adminSuccessMessage = '';
                     this.isLoading = true;
-                    
+
                     try {
+                         // Save content usa /api prefixado no endpoint
                         const response = await fetch(
-                            `${API_BASE_URL}/admin/update-content-query?username=${this.adminUsername}&password=${this.adminPassword}`, 
+                            `${API_BASE_URL}/admin/update-content-query?username=${this.adminUsername}&password=${this.adminPassword}`,
                             {
                                 method: 'POST',
                                 headers: {
@@ -433,18 +453,19 @@
                                 }),
                             }
                         );
-                        
+
                         const result = await response.json();
-                        
+
                         if (!response.ok) {
                             throw new Error(result.detail || 'Falha ao salvar conteúdo');
                         }
-                        
+
                         this.adminSuccessMessage = `Conteúdo atualizado com sucesso! (${result.questions_count} questões, ${result.answers_count} respostas)`;
-                        
+
                         // Fechar o painel admin
                         setTimeout(() => {
                             this.showAdminPanel = false;
+                            this.adminSuccessMessage = ''; // Limpa msg de sucesso ao fechar
                             // Voltar para a tela inicial
                             if (this.examState === 'taking') {
                                 // Se estiver fazendo prova, voltar para página inicial
@@ -453,8 +474,8 @@
                                     clearInterval(this.timerInterval);
                                 }
                             }
-                        }, 2000);
-                        
+                        }, 2000); // Fecha após 2 segundos
+
                     } catch (error) {
                         console.error('Erro ao salvar conteúdo:', error);
                         this.adminErrorMessage = `Falha ao salvar: ${error.message}`;
@@ -462,60 +483,55 @@
                         this.isLoading = false;
                     }
                 },
-                
-                async reloadExamData() {
-                    // Se o usuário estiver fazendo a prova, atualize os dados
-                    if (this.examState === 'taking') {
-                        try {
-                            const response = await fetch(`${API_BASE_URL}/exam`);
-                            if (!response.ok) {
-                                throw new Error(`Erro ao buscar prova atualizada: ${response.statusText}`);
-                            }
-                            this.examData = await response.json();
-                            console.log("Dados da prova recarregados com sucesso");
-                        } catch (error) {
-                            console.error('Erro ao recarregar prova:', error);
-                        }
-                    }
-                },
-                
+
+                // Esta função não é mais necessária, pois a recarga acontece no backend
+                // async reloadExamData() { ... },
+
                 cancelAdminEdit() {
                     this.showAdminPanel = false;
                     this.adminErrorMessage = '';
                     this.adminSuccessMessage = '';
+                    // Não recarrega o conteúdo aqui, ele será carregado na próxima vez que abrir o painel
                 },
-                
-                handleCopy(event) {
-                    // Permite copiar SE estiver dentro da área de admin
-                    if (!event.target.closest('.admin-area')) {
-                        console.log('Copy blocked outside admin area.');
-                        event.preventDefault(); // Bloqueia fora da área admin
-                    } else {
-                        console.log('Copy allowed in admin area.');
-                        // Não faz nada, permite a cópia padrão
+
+                 // Limpa o conteúdo da textarea especificada
+                clearTextarea(targetModel) {
+                    if (targetModel === 'examContent') {
+                        this.examContent = '';
+                    } else if (targetModel === 'answersContent') {
+                        this.answersContent = '';
+                    }
+                    console.log(`Cleared ${targetModel}`);
+                },
+
+                // Cola o texto da área de transferência na textarea especificada
+                async pasteFromClipboard(targetModel) {
+                    try {
+                        // Verifica permissão (necessário para alguns navegadores/contextos)
+                        if (navigator.clipboard && navigator.clipboard.readText) {
+                            const text = await navigator.clipboard.readText();
+                            if (targetModel === 'examContent') {
+                                this.examContent = text;
+                            } else if (targetModel === 'answersContent') {
+                                this.answersContent = text;
+                            }
+                            console.log(`Pasted into ${targetModel}`);
+                            this.adminErrorMessage = ''; // Limpa erro anterior se houver
+                        } else {
+                             throw new Error('API de Clipboard não suportada ou permissão negada.');
+                        }
+                    } catch (err) {
+                        console.error('Falha ao colar da área de transferência:', err);
+                        this.adminErrorMessage = `Erro ao colar: ${err.message}. Verifique as permissões do navegador.`;
+                        // Tenta alertar o usuário sobre permissões
+                        if (err.name === 'NotAllowedError') {
+                           alert('Você precisa permitir que o site acesse sua área de transferência para usar esta função.');
+                        } else {
+                           alert(`Erro ao colar: ${err.message}`);
+                        }
                     }
                 },
-                
-                handleCut(event) {
-                    // Permite cortar SE estiver dentro da área de admin
-                    if (!event.target.closest('.admin-area')) {
-                        console.log('Cut blocked outside admin area.');
-                        event.preventDefault(); // Bloqueia fora da área admin
-                    } else {
-                        console.log('Cut allowed in admin area.');
-                    }
-                },
-                
-                handlePaste(event) {
-                    // Permite colar SE estiver dentro da área de admin
-                    if (!event.target.closest('.admin-area')) {
-                        console.log('Paste blocked outside admin area.');
-                        event.preventDefault(); // Bloqueia fora da área admin
-                    } else {
-                        console.log('Paste allowed in admin area.');
-                    }
-                },
-                
+
                 allowContextInAdmin(event) {
                     // Permite menu de contexto SE estiver dentro da área de admin
                     if (!event.target.closest('.admin-area')) {
@@ -590,6 +606,7 @@
                         }
                     }
 
+                    // Validação movida para o backend, mas podemos manter um alerta
                     if (Object.keys(this.answers).length !== this.examData.questions.length && !isAutoSubmit) {
                          // Alerta se nem todas foram respondidas (exceto auto-submit por tempo)
                          if (!confirm('Você não respondeu todas as questões. Deseja finalizar mesmo assim?')) {
@@ -609,19 +626,11 @@
                         }))
                     };
 
-                    // Garante que todas as questões tenham uma resposta (pelo menos nula) se não foram respondidas
-                    const answeredQuestionNumbers = new Set(submissionData.answers.map(a => a.question_number));
-                    this.examData.questions.forEach(q => {
-                        if (!answeredQuestionNumbers.has(q.question_number)) {
-                            submissionData.answers.push({
-                                question_number: q.question_number,
-                                selected_option_index: -1 // Ou outro indicador de não respondido
-                            });
-                        }
-                    });
+                    // Não é mais necessário preencher respostas vazias aqui, backend lida com isso
                     submissionData.answers.sort((a, b) => a.question_number - b.question_number); // Ordena para garantir consistência
 
                     try {
+                        // Submit usa /api prefixado no endpoint
                         const response = await fetch(`${API_BASE_URL}/submit`, {
                             method: 'POST',
                             headers: {
