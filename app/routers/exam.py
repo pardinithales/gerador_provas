@@ -53,22 +53,19 @@ def get_exam_data():
 @router.post("/submit", response_model=ResultSchema)
 def submit_answers(submission: SubmissionSchema, background_tasks: BackgroundTasks):
     """Recebe as respostas, calcula o resultado e agenda o envio de e-mails."""
-    # Recarrega os dados para garantir consistência
-    reload_exam_data()
+    # Recarrega os dados para garantir consistência E USA OS DADOS RETORNADOS
+    current_exam_data, current_answers = reload_exam_data()
     
-    total_questions = len(parsed_exam_data.questions)
+    # Usa os dados retornados pela função reload_exam_data
+    total_questions = len(current_exam_data.questions)
     logger.info(f"Processando submissão. Total de questões: {total_questions}, Total de respostas: {len(submission.answers)}")
     
-    # Log das questões que estão carregadas
-    for q in parsed_exam_data.questions:
+    # Log das questões que estão carregadas (usando a variável local)
+    for q in current_exam_data.questions:
         logger.info(f"Questão carregada: Q{q.question_number}: {q.text[:30]}...")
     
-    # Se o número de questões for diferente do esperado, tenta recarregar novamente
-    if total_questions != 10 and len(submission.answers) == 10:
-        logger.warning(f"Número de questões ({total_questions}) diferente do esperado (10). Tentando recarregar...")
-        reload_exam_data()
-        total_questions = len(parsed_exam_data.questions)
-        logger.info(f"Após recarga: Total de questões: {total_questions}")
+    # Esta verificação pode não ser mais necessária ou precisar de ajuste
+    # if total_questions != 10 and len(submission.answers) == 10: ... 
     
     correct_count = 0
     incorrect_questions_details = []
@@ -79,14 +76,18 @@ def submit_answers(submission: SubmissionSchema, background_tasks: BackgroundTas
         error_msg = f"Número de respostas ({len(submission.answers)}) não confere com o número de questões ({total_questions})"
         logger.error(error_msg)
         # Ajuste para permitir a continuação mesmo com número diferente
-        if len(submission.answers) >= total_questions or len(submission.answers) == 10:
-            logger.warning("Continuando processamento mesmo com inconsistência...")
-        else:
-            raise HTTPException(status_code=400, detail=error_msg)
-
-    for question in parsed_exam_data.questions:
+        # if len(submission.answers) >= total_questions or len(submission.answers) == 10: ...
+        # Considere ser mais estrito aqui ou ajustar a lógica
+        if len(submission.answers) < total_questions:
+            logger.warning("Número de respostas menor que o número de questões. Continuando...")
+        elif len(submission.answers) > total_questions:
+             raise HTTPException(status_code=400, detail=error_msg)
+             
+    # Itera sobre as questões CORRENTES carregadas
+    for question in current_exam_data.questions:
         q_num = question.question_number
-        correct_answer_letter = parsed_correct_answers.get(q_num)
+        # Usa o gabarito CORRENTE carregado
+        correct_answer_letter = current_answers.get(q_num)
 
         if correct_answer_letter is None:
             logger.error(f"Gabarito não encontrado para a questão {q_num}.")
@@ -117,7 +118,7 @@ def submit_answers(submission: SubmissionSchema, background_tasks: BackgroundTas
             })
 
     # Adiciona tratamento para caso extremo onde nenhuma questão foi processada
-    if len(parsed_exam_data.questions) == 0:
+    if len(current_exam_data.questions) == 0:
         logger.critical("ALERTA: Nenhuma questão carregada! Isso é um erro crítico.")
         raise HTTPException(status_code=500, detail="Erro crítico: Nenhuma questão carregada no sistema")
 
@@ -129,7 +130,7 @@ def submit_answers(submission: SubmissionSchema, background_tasks: BackgroundTas
     result = ResultSchema(
         score=round(score, 2),
         correct_answers=correct_count,
-        total_questions=total_questions,
+        total_questions=total_questions, # Usa o total_questions calculado corretamente
         incorrect_questions=incorrect_questions_details
     )
 
@@ -139,7 +140,8 @@ def submit_answers(submission: SubmissionSchema, background_tasks: BackgroundTas
         send_results_emails,
         student_identifier=submission.student_identifier,
         result=result,
-        exam_title=parsed_exam_data.metadata.titulo,
+        # Usa o título dos dados CORRENTES
+        exam_title=current_exam_data.metadata.titulo,
         timestamp=timestamp
     )
 
